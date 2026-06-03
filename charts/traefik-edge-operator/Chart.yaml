@@ -1,0 +1,5 @@
+apiVersion: v2
+name: traefik-edge-operator
+description: Per-node Traefik edge ingress operator (IP-SAN + reflected domain certs).
+type: application
+version: 0.1.0

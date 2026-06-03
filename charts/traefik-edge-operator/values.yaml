@@ -1,0 +1,25 @@
+image:
+  repository: ghcr.io/ech-bz/traefik-edge-operator
+  tag: ""
+  pullPolicy: IfNotPresent
+
+traefikImage: traefik:v3.4
+
+leader:
+  name: traefik-edge-operator
+  leaseDurationSeconds: 30
+  leaseGraceSeconds: 15
+
+healthPort: 8081
+
+reconcileIntervalSeconds: 60
+errorBackoffSeconds: 10
+waitSeconds: 15
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi

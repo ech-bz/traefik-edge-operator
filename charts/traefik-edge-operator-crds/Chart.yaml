@@ -1,0 +1,5 @@
+apiVersion: v2
+name: traefik-edge-operator-crds
+description: CRDs for traefik-edge-operator (IngressGroup).
+type: application
+version: 0.1.0
