@@ -47,3 +47,6 @@ spec:
                         type: integer
                         minimum: 1
                         maximum: 65535
+                      stripPrefix:
+                        type: boolean
+                        description: When true, a StripPrefix middleware is attached to the route, removing the pathPrefix from the request URL before forwarding to the backend.

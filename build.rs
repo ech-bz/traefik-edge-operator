@@ -8,6 +8,7 @@ const CRDS: &[(&str, &str)] = &[
     ("external-crds/cm-Certificate.yaml", "certificate.rs"),
     ("external-crds/cm-ClusterIssuer.yaml", "cluster_issuer.rs"),
     ("external-crds/tr-IngressRoute.yaml", "ingress_route.rs"),
+    ("external-crds/tr-Middleware.yaml", "middleware.rs"),
     ("external-crds/tr-TLSStore.yaml", "tls_store.rs"),
     (
         "charts/traefik-edge-operator-crds/templates/ingressgroup.yaml",

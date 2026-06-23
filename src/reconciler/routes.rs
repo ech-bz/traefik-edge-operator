@@ -1,12 +1,14 @@
 use super::naming::{
     domain_cert_secret_name, group_label_selector, group_labels, ip_cert_secret_name,
-    route_resource_name,
+    route_resource_name, strip_prefix_middleware_name,
 };
 use crate::{
     crds::{
         IngressGroupRoutes, IngressRoute, IngressRouteRoutes, IngressRouteRoutesKind,
-        IngressRouteRoutesServices, IngressRouteSpec as IngressRouteCrdSpec, IngressRouteTls,
-        TlsStore, TlsStoreCertificates, TlsStoreDefaultCertificate, TlsStoreSpec,
+        IngressRouteRoutesMiddlewares, IngressRouteRoutesServices,
+        IngressRouteSpec as IngressRouteCrdSpec, IngressRouteTls, Middleware, MiddlewareSpec,
+        MiddlewareStripPrefix, TlsStore, TlsStoreCertificates, TlsStoreDefaultCertificate,
+        TlsStoreSpec,
     },
     error::{OperatorError, Result},
     resources,
@@ -51,15 +53,22 @@ pub(super) async fn ensure_tls_store(
     resources::apply(&api, TLSSTORE_DEFAULT, &tlsstore).await
 }
 
+pub(super) struct DesiredResources {
+    pub routes: BTreeSet<String>,
+    pub middlewares: BTreeSet<String>,
+}
+
 pub(super) async fn ensure_ingress_routes(
     client: &Client,
     group: &str,
     edge_ns: &str,
     group_ns: &str,
     routes: &[IngressGroupRoutes],
-) -> Result<BTreeSet<String>> {
-    let mut desired = BTreeSet::new();
+) -> Result<DesiredResources> {
+    let mut desired_routes = BTreeSet::new();
+    let mut desired_middlewares = BTreeSet::new();
     let api: Api<IngressRoute> = Api::namespaced(client.clone(), edge_ns);
+    let mw_api: Api<Middleware> = Api::namespaced(client.clone(), edge_ns);
     for route in routes {
         let service_port: u16 = route.service_port.try_into().map_err(|_| {
             OperatorError::Config(format!(
@@ -81,7 +90,34 @@ pub(super) async fn ensure_ingress_routes(
             &route.service_name,
             service_port,
         );
-        desired.insert(name.clone());
+        desired_routes.insert(name.clone());
+
+        let strip = route.strip_prefix.unwrap_or(false);
+        let middlewares: Option<Vec<IngressRouteRoutesMiddlewares>> = if strip {
+            let mw_name = strip_prefix_middleware_name(
+                group,
+                edge_ns,
+                &route.path_prefix,
+                &service_namespace,
+                &route.service_name,
+                service_port,
+            );
+            desired_middlewares.insert(mw_name.clone());
+            ensure_strip_prefix_middleware(
+                &mw_api,
+                group,
+                edge_ns,
+                &mw_name,
+                &route.path_prefix,
+            )
+            .await?;
+            Some(vec![IngressRouteRoutesMiddlewares {
+                name: mw_name,
+                namespace: None,
+            }])
+        } else {
+            None
+        };
 
         let ingress_route = build_ingress_route(RouteBuild {
             name: &name,
@@ -91,10 +127,36 @@ pub(super) async fn ensure_ingress_routes(
             service_name: route.service_name.clone(),
             service_namespace,
             service_port,
+            middlewares,
         });
         resources::apply(&api, &name, &ingress_route).await?;
     }
-    Ok(desired)
+    Ok(DesiredResources {
+        routes: desired_routes,
+        middlewares: desired_middlewares,
+    })
+}
+
+async fn ensure_strip_prefix_middleware(
+    api: &Api<Middleware>,
+    group: &str,
+    edge_ns: &str,
+    name: &str,
+    path_prefix: &str,
+) -> Result<()> {
+    let mut mw = Middleware::new(
+        name,
+        MiddlewareSpec {
+            strip_prefix: Some(MiddlewareStripPrefix {
+                prefixes: Some(vec![path_prefix.to_string()]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+    mw.metadata.namespace = Some(edge_ns.to_string());
+    mw.metadata.labels = Some(group_labels(group));
+    resources::apply(api, name, &mw).await
 }
 
 pub(super) async fn prune_routes(
@@ -107,6 +169,16 @@ pub(super) async fn prune_routes(
     resources::prune(&api, &group_label_selector(group), desired).await
 }
 
+pub(super) async fn prune_middlewares(
+    client: &Client,
+    group: &str,
+    edge_ns: &str,
+    desired: &BTreeSet<String>,
+) -> Result<()> {
+    let api: Api<Middleware> = Api::namespaced(client.clone(), edge_ns);
+    resources::prune(&api, &group_label_selector(group), desired).await
+}
+
 struct RouteBuild<'a> {
     name: &'a str,
     namespace: &'a str,
@@ -115,6 +187,7 @@ struct RouteBuild<'a> {
     service_name: String,
     service_namespace: String,
     service_port: u16,
+    middlewares: Option<Vec<IngressRouteRoutesMiddlewares>>,
 }
 
 fn build_ingress_route(r: RouteBuild<'_>) -> IngressRoute {
@@ -125,7 +198,7 @@ fn build_ingress_route(r: RouteBuild<'_>) -> IngressRoute {
             routes: vec![IngressRouteRoutes {
                 kind: Some(IngressRouteRoutesKind::Rule),
                 r#match: r.match_rule,
-                middlewares: None,
+                middlewares: r.middlewares,
                 observability: None,
                 priority: None,
                 services: Some(vec![IngressRouteRoutesServices {

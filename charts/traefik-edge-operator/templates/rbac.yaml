@@ -32,7 +32,7 @@ rules:
     resources: ["certificates", "clusterissuers"]
     verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
   - apiGroups: ["traefik.io"]
-    resources: ["ingressroutes", "tlsstores"]
+    resources: ["ingressroutes", "middlewares", "tlsstores"]
     verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]

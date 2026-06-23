@@ -141,7 +141,7 @@ async fn reconcile_apply(ctx: &Ctx, group_ns: &str, group: Arc<IngressGroup>) ->
         nodes::ensure_edge_namespace(client, &group_name, &edge_ns).await?;
         certificates::ensure_ip_cert(client, &group_name, &edge_ns, &node_ip).await?;
         routes::ensure_tls_store(client, &group_name, &edge_ns, domains, &node_ip).await?;
-        let desired_routes =
+        let desired =
             routes::ensure_ingress_routes(client, &group_name, &edge_ns, group_ns, routes).await?;
         traefik::ensure_traefik_stack(
             client,
@@ -153,7 +153,8 @@ async fn reconcile_apply(ctx: &Ctx, group_ns: &str, group: Arc<IngressGroup>) ->
         )
         .await?;
 
-        routes::prune_routes(client, &group_name, &edge_ns, &desired_routes).await?;
+        routes::prune_routes(client, &group_name, &edge_ns, &desired.routes).await?;
+        routes::prune_middlewares(client, &group_name, &edge_ns, &desired.middlewares).await?;
         certificates::prune_ip_certs(client, &group_name, &edge_ns, &node_ip).await?;
     }
 

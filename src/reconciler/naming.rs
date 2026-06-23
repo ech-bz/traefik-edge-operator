@@ -73,6 +73,18 @@ pub(super) fn ip_cert_secret_name(group: &str, node_ip: &str) -> String {
     format!("ip-secret-{group}-{}", hash(node_ip))
 }
 
+pub(super) fn strip_prefix_middleware_name(
+    group: &str,
+    scope: &str,
+    path_prefix: &str,
+    service_namespace: &str,
+    service_name: &str,
+    service_port: u16,
+) -> String {
+    let key = format!("{scope}|{path_prefix}|{service_namespace}|{service_name}|{service_port}");
+    format!("strip-{group}-{}", hash(&key))
+}
+
 pub(super) fn route_resource_name(
     group: &str,
     scope: &str,
