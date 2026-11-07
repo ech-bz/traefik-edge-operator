@@ -127,6 +127,7 @@ pub(super) async fn ensure_ingress_routes(
             service_name: route.service_name.clone(),
             service_namespace,
             service_port,
+            service_scheme: route.service_scheme.clone(),
             middlewares,
         });
         resources::apply(&api, &name, &ingress_route).await?;
@@ -187,6 +188,7 @@ struct RouteBuild<'a> {
     service_name: String,
     service_namespace: String,
     service_port: u16,
+    service_scheme: Option<String>,
     middlewares: Option<Vec<IngressRouteRoutesMiddlewares>>,
 }
 
@@ -211,7 +213,7 @@ fn build_ingress_route(r: RouteBuild<'_>) -> IngressRoute {
                     node_port_lb: None,
                     pass_host_header: None,
                     response_forwarding: None,
-                    scheme: None,
+                    scheme: r.service_scheme,
                     servers_transport: None,
                     sticky: None,
                     strategy: None,

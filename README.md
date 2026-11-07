@@ -62,3 +62,5 @@ spec:
       serviceNamespace: apps
       servicePort: 8080
 ```
+
+Routes optionally accept `serviceScheme: http`, `https`, or `h2c`. The operator forwards it to the generated IngressRoute service's `scheme`; when omitted, Traefik selects the protocol from the service port. Use `h2c` for a backend that accepts cleartext HTTP/2, allowing concurrent SSE and API streams on a shared upstream connection.
