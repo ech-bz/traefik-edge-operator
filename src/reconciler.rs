@@ -149,6 +149,7 @@ async fn reconcile_apply(ctx: &Ctx, group_ns: &str, group: Arc<IngressGroup>) ->
             &group_name,
             &edge_ns,
             &node_name,
+            &node_ip,
             &nodes::route_watch_namespaces(&edge_ns, group_ns, routes),
         )
         .await?;

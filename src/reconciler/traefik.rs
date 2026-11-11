@@ -27,6 +27,7 @@ pub(super) async fn ensure_traefik_stack(
     group: &str,
     edge_ns: &str,
     node_name: &str,
+    node_ip: &str,
     watch_namespaces: &str,
 ) -> Result<()> {
     ensure_traefik_rbac(client, group, edge_ns, node_name).await?;
@@ -36,6 +37,7 @@ pub(super) async fn ensure_traefik_stack(
         group,
         edge_ns,
         node_name,
+        node_ip,
         watch_namespaces,
     )
     .await
@@ -91,6 +93,7 @@ async fn ensure_traefik_daemonset(
     group: &str,
     edge_ns: &str,
     node_name: &str,
+    node_ip: &str,
     watch_namespaces: &str,
 ) -> Result<()> {
     let mut ds_labels = group_labels(group);
@@ -132,8 +135,11 @@ async fn ensure_traefik_daemonset(
                         name: "traefik".into(),
                         image: Some(traefik_image.to_string()),
                         args: Some(vec![
-                            "--entryPoints.web.address=:80".into(),
-                            "--entryPoints.websecure.address=:443".into(),
+                            format!("--entryPoints.web.address={}", entrypoint_address(node_ip, 80)),
+                            format!(
+                                "--entryPoints.websecure.address={}",
+                                entrypoint_address(node_ip, 443)
+                            ),
                             "--providers.kubernetesingress".into(),
                             format!(
                                 "--providers.kubernetesingress.ingressclass={}",
@@ -175,4 +181,12 @@ async fn ensure_traefik_daemonset(
 
     let ds_api: Api<DaemonSet> = Api::namespaced(client.clone(), edge_ns);
     resources::apply(&ds_api, TRAEFIK_DS, &ds).await
+}
+
+fn entrypoint_address(node_ip: &str, port: u16) -> String {
+    if node_ip.contains(':') {
+        format!("[{node_ip}]:{port}")
+    } else {
+        format!("{node_ip}:{port}")
+    }
 }
