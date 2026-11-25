@@ -24,6 +24,7 @@ const INGRESS_ONLY_TAINT: &str = "ech.bz/ingress-only";
 pub(super) async fn ensure_traefik_stack(
     client: &Client,
     traefik_image: &str,
+    forwarded_trusted_ips: &str,
     group: &str,
     edge_ns: &str,
     node_name: &str,
@@ -34,6 +35,7 @@ pub(super) async fn ensure_traefik_stack(
     ensure_traefik_daemonset(
         client,
         traefik_image,
+        forwarded_trusted_ips,
         group,
         edge_ns,
         node_name,
@@ -90,6 +92,7 @@ async fn ensure_traefik_rbac(
 async fn ensure_traefik_daemonset(
     client: &Client,
     traefik_image: &str,
+    forwarded_trusted_ips: &str,
     group: &str,
     edge_ns: &str,
     node_name: &str,
@@ -98,6 +101,31 @@ async fn ensure_traefik_daemonset(
 ) -> Result<()> {
     let mut ds_labels = group_labels(group);
     ds_labels.insert("app".into(), TRAEFIK_APP_LABEL.into());
+
+    let mut args = vec![
+        format!(
+            "--entryPoints.web.address={}",
+            entrypoint_address(node_ip, 80)
+        ),
+        format!(
+            "--entryPoints.websecure.address={}",
+            entrypoint_address(node_ip, 443)
+        ),
+        "--providers.kubernetesingress".into(),
+        format!(
+            "--providers.kubernetesingress.ingressclass={}",
+            traefik_ingress_class(group)
+        ),
+        format!("--providers.kubernetesingress.namespaces={watch_namespaces}"),
+        "--providers.kubernetescrd".into(),
+        "--providers.kubernetescrd.allowcrossnamespace=true".into(),
+        format!("--providers.kubernetescrd.namespaces={watch_namespaces}"),
+    ];
+    if !forwarded_trusted_ips.is_empty() {
+        args.push(format!(
+            "--entryPoints.websecure.forwardedHeaders.trustedIPs={forwarded_trusted_ips}"
+        ));
+    }
 
     let ds = DaemonSet {
         metadata: ObjectMeta {
@@ -134,22 +162,7 @@ async fn ensure_traefik_daemonset(
                     containers: vec![Container {
                         name: "traefik".into(),
                         image: Some(traefik_image.to_string()),
-                        args: Some(vec![
-                            format!("--entryPoints.web.address={}", entrypoint_address(node_ip, 80)),
-                            format!(
-                                "--entryPoints.websecure.address={}",
-                                entrypoint_address(node_ip, 443)
-                            ),
-                            "--providers.kubernetesingress".into(),
-                            format!(
-                                "--providers.kubernetesingress.ingressclass={}",
-                                traefik_ingress_class(group)
-                            ),
-                            format!("--providers.kubernetesingress.namespaces={watch_namespaces}"),
-                            "--providers.kubernetescrd".into(),
-                            "--providers.kubernetescrd.allowcrossnamespace=true".into(),
-                            format!("--providers.kubernetescrd.namespaces={watch_namespaces}"),
-                        ]),
+                        args: Some(args),
                         ports: Some(vec![
                             ContainerPort {
                                 name: Some("web".into()),

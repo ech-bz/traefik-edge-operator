@@ -23,6 +23,11 @@ spec:
             spec:
               type: object
               properties:
+                forwardedTrustedIps:
+                  type: array
+                  description: Peers allowed to supply X-Forwarded-For for this group's entrypoints.
+                  items:
+                    type: string
                 domains:
                   type: array
                   description: Hostnames owned by this group.

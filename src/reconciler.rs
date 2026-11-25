@@ -119,6 +119,12 @@ async fn reconcile_apply(ctx: &Ctx, group_ns: &str, group: Arc<IngressGroup>) ->
     let client = &ctx.client;
     let domains = group.spec.domains.as_deref().unwrap_or(&[]);
     let routes = group.spec.routes.as_deref().unwrap_or(&[]);
+    let forwarded_trusted_ips = group
+        .spec
+        .forwarded_trusted_ips
+        .as_deref()
+        .unwrap_or(&[])
+        .join(",");
 
     let issuers: Api<ClusterIssuer> = Api::all(client.clone());
     if issuers.get_opt(&group_name).await?.is_none() {
@@ -146,6 +152,7 @@ async fn reconcile_apply(ctx: &Ctx, group_ns: &str, group: Arc<IngressGroup>) ->
         traefik::ensure_traefik_stack(
             client,
             &ctx.config.traefik_image,
+            &forwarded_trusted_ips,
             &group_name,
             &edge_ns,
             &node_name,
