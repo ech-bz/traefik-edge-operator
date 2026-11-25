@@ -86,8 +86,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,format=short
+            type=sha,format=long,prefix=
 
       - name: create and push manifest
         working-directory: /tmp/digests
