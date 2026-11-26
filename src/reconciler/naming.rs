@@ -92,7 +92,26 @@ pub(super) fn route_resource_name(
     service_namespace: &str,
     service_name: &str,
     service_port: u16,
+    strip_prefix: bool,
+    headers: &str,
 ) -> String {
-    let key = format!("{scope}|{path_prefix}|{service_namespace}|{service_name}|{service_port}");
+    let key = format!(
+        "{scope}|{path_prefix}|{service_namespace}|{service_name}|{service_port}|{strip_prefix}|{headers}"
+    );
     format!("route-{group}-{}", hash(&key))
+}
+
+pub(super) fn headers_middleware_name(
+    group: &str,
+    scope: &str,
+    path_prefix: &str,
+    service_namespace: &str,
+    service_name: &str,
+    service_port: u16,
+    headers: &str,
+) -> String {
+    let key = format!(
+        "{scope}|{path_prefix}|{service_namespace}|{service_name}|{service_port}|{headers}"
+    );
+    format!("headers-{group}-{}", hash(&key))
 }

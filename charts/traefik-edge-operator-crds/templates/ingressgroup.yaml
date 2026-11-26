@@ -59,3 +59,9 @@ spec:
                       stripPrefix:
                         type: boolean
                         description: When true, a StripPrefix middleware is attached to the route, removing the pathPrefix from the request URL before forwarding to the backend.
+                      headers:
+                        type: object
+                        minProperties: 1
+                        description: Request headers added to the proxied request. A header set to an empty string is removed.
+                        additionalProperties:
+                          type: string
